@@ -12,39 +12,68 @@ $(function() {
 		container.append('<div class="block">');
 	}
 	var blocks = $(".block");
-	var direction = 1;
-	var difficulty = 50;
-	var snakeSize = 4;
+	var direction;
+	var difficulty;
+	var snakeSize;
 	var snakeBody = new Array({
 		x: 2,
 		y: 5
 	});
 	var commands = [];
 	var apple;
-	placeApple();
 	var runInterval;
-	setTimeout(function() {
-		runInterval = setInterval(run, difficulty, 2000);
-	}, 800);
+
 	var points = 0;
 	var start_again = false;
 
-	bindKeys();
+	// initialize
+	addUIEventHandlers();
+
+	// run first game
+	startNewGame();
+
+	function initStartingVars() {
+		direction = 1;
+		difficulty = 50;
+		snakeSize = 4;
+		snakeBody = new Array({
+			x: 2,
+			y: 5
+		});
+		commands = [];
+		placeApple();
+		points = 0;
+	}
+
+	function startNewGame() {
+		clearInterval(runInterval);
+		setTimeout(function() {
+			start_again = false;
+			$(".block").each(function() {
+				$(this).removeClass();
+				$(this).addClass('block');
+			});
+			initStartingVars();
+			$(".points").hide();
+			$(".snake").show();
+			$(".points .text").text("");
+			runInterval = setInterval(run, difficulty);
+		}, 1000);
+	}
 
 	function run() {
 		doDirectionCommand();
+		if (start_again) return;
 		var headPos = snakeBody[snakeBody.length - 1];
 		var nextHeadPos = getNextPosition(headPos);
 
 		if (isCollision(nextHeadPos)) {
-			clearInterval(runInterval);
+			start_again = true;
 			setTimeout(function() {
-			$(".snake").hide();
-			$(".points .text").text(points);
-			$(".points").show();
-			setTimeout(function() {
-				start_again = true;
-			}, 1200);
+				commands = [];
+				$(".snake").hide();
+				$(".points .text").text(points);
+				$(".points").show();
 			}, 700);
 			return;
 		}
@@ -141,39 +170,87 @@ $(function() {
 		return false;
 	}
 
+	function pushCommand(direction) {
+		commands.push(direction);
+	}
+
 	function bindKeys() {
 		$(document).keydown(function(e) {
 			switch (e.which) {
 				case 37:
-					commands.push(3);
+					pushCommand(3);
 					break; //left
 				case 38:
-					commands.push(0);
-					break;
+					pushCommand(0);
+					break;  // up
 				case 39:
-					commands.push(1);
-					break;
+					pushCommand(1);
+					break;  // right
 				case 40:
-					commands.push(2);
-					break;
+					pushCommand(2);
+					break;  // down
 
 				default:
 					return; // exit this handler for other keys
 			}
-			console.log(e.which);
+			// console.log(e.which);
 			e.preventDefault(); // prevent the default action (scroll / move caret)
 		});
 	}
 
+	function buildUIHooks() {
+		$('.buttons .col').each(function(colNum, col) {
+			$(col).find('.button').each(function(i, button) {
+				var digit = ((i * 3) + 1) + colNum;  // start at 1 and multiply by column number
+				if (digit > 0) {
+					switch (digit) {
+						case 10:
+							digit = "*";
+							break;
+						case 11:
+							digit = 0;
+							break;
+						case 12:
+							digit = "#";
+							break;
+					}
+				}
+				$(button).attr('data-button', digit.toString());
+			});
+		});
+	}
+
+	var digitDirectionMapping = {
+		"4": 3,
+		"2": 0,
+		"6": 1,
+		"8": 2
+	};
+
+	function bindClickTouch() {
+		buildUIHooks();
+		$('.buttons').on("touchstart click", '.button', function() {
+			var digitPushed = $(this).attr('data-button');
+			var cmd = digitDirectionMapping[digitPushed];
+			if (cmd === undefined) return;  // ignore unmapped buttons
+			pushCommand(cmd);
+		});
+	}
+
+	function addUIEventHandlers() {
+		bindKeys();
+		bindClickTouch();
+	}
+
 	function doDirectionCommand() {
 		if (commands.length === 0) return;
+
+		// handle pressing `anykey` when game done
+		if (start_again) return startNewGame();
+
 		var dirCommand = commands.shift();
 		if (dirCommand == direction) return;
 
-		if (start_again) {
-			location.reload();
-			return;
-		}
 
 		if (dirCommand === 0 && direction === 2) return;
 		if (dirCommand === 2 && direction === 0) return;
